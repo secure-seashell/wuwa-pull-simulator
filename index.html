@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gacha Pull RNG Simulator</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Wuthering Waves RNG Simulator</h1>
+
+        <div class="methodology-section">
+            <details>
+                <summary><h2>Methodology</h2></summary>
+                <div class="methodology-content">
+                    <ul>
+                        <li>When pulling for both weapons and characters, weapons are pulled first.</li>
+                        <li>When spending corals on pulls, 8 corals are always spent if available. These are not counted in the final pull count.</li>
+                        <li>When spending corals on sequences, after winning the desired character, 370 corals are spent to buy a sequence if available. Corals are not spent at any other time.</li>
+                        <li>Soft pity is calculated at 4% per pull starting at pull 66, 8% at 71, 9% at 76, experimentally observed on <a href="https://wuwatracker.com/" target="_blank">wuwatracker.com</a>.</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <div class="config-section">
+            <h2>Goals</h2>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label for="weaponTarget">Target Weapons:</label>
+                    <input type="number" id="weaponTarget" min="0" max="10" value="0">
+                </div>
+
+                <div class="config-item">
+                    <label for="characterTarget">Target Characters:</label>
+                    <input type="number" id="characterTarget" min="0" max="10" value="1">
+                </div>
+
+            </div>
+
+            <h2>Parameters</h2>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label for="simulations">Number of Simulations:</label>
+                    <input type="number" id="simulations" min="100" max="100000" value="10000">
+                </div>
+
+                <div class="config-item">
+                    <label for="currentPity">Starting Pity Count:</label>
+                    <input type="number" id="currentPity" min="0" max="80" value="0">
+                </div>
+
+                <div class="config-item" id="sRankGuaranteedItem">
+                    <label for="guaranteed">Next S-rank Guaranteed:</label>
+                    <select id="guaranteed">
+                        <option value="false">No (50/50)</option>
+                        <option value="true">Yes (Guaranteed)</option>
+                    </select>
+                </div>
+            </div>
+
+            <h2>Coral Settings</h2>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label for="startingCorals">Starting Corals:</label>
+                    <input type="number" id="startingCorals" min="0" max="10000" value="0">
+                </div>
+
+                <div class="config-item">
+                    <label>
+                        <input type="checkbox" id="aRankS0" checked>
+                        A-rank Characters at S0 (3 corals vs 8 at S6)
+                    </label>
+                </div>
+
+                <div class="config-item">
+                    <label>
+                        <input type="checkbox" id="standardSRankS0" checked>
+                        Standard S-rank Characters at S0 (45 corals vs 70 at S6)
+                    </label>
+                </div>
+            </div>
+
+            <h2>Coral Usage Mode</h2>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label>
+                        <input type="radio" name="coralMode" value="none" checked>
+                        Don't spend corals (save all)
+                    </label>
+                </div>
+
+                <div class="config-item">
+                    <label>
+                        <input type="radio" name="coralMode" value="reinvest">
+                        Reinvest Corals as Free Pulls (8 corals = 1 pull)
+                    </label>
+                </div>
+
+                <div class="config-item">
+                    <label>
+                        <input type="radio" name="coralMode" value="sequences">
+                        Buy Sequences with Corals (370 corals = 1 character)
+                    </label>
+                </div>
+            </div>
+
+            <button id="runSimulation" class="btn-primary">Run Simulation</button>
+        </div>
+
+        <div class="results-section" id="results" style="display: none;">
+            <h2>Results</h2>
+
+            <h3 id="pullStatsTitle">Pull Statistics</h3>
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-label" id="avgPullsLabel">Average Pulls:</span>
+                    <span class="stat-value" id="avgPulls">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label" id="medianPullsLabel">Median Pulls:</span>
+                    <span class="stat-value" id="medianPulls">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label" id="minPullsLabel">Min Pulls:</span>
+                    <span class="stat-value" id="minPulls">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label" id="maxPullsLabel">Max Pulls:</span>
+                    <span class="stat-value" id="maxPulls">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label" id="p90PullsLabel">90th Percentile:</span>
+                    <span class="stat-value" id="p90Pulls">-</span>
+                </div>
+            </div>
+
+            <h3>A-Rank Statistics</h3>
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-label">Average A-Ranks:</span>
+                    <span class="stat-value" id="avgARanks">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Median A-Ranks:</span>
+                    <span class="stat-value" id="medianARanks">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Min A-Ranks:</span>
+                    <span class="stat-value" id="minARanks">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Max A-Ranks:</span>
+                    <span class="stat-value" id="maxARanks">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">90th Percentile A-Ranks:</span>
+                    <span class="stat-value" id="p90ARanks">-</span>
+                </div>
+            </div>
+
+            <h3 id="coralStatsTitle">Coral Statistics</h3>
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-label" id="avgCoralsLabel">Average Corals:</span>
+                    <span class="stat-value" id="avgCorals">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label" id="medianCoralsLabel">Median Corals:</span>
+                    <span class="stat-value" id="medianCorals">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label" id="minCoralsLabel">Min Corals:</span>
+                    <span class="stat-value" id="minCorals">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label" id="maxCoralsLabel">Max Corals:</span>
+                    <span class="stat-value" id="maxCorals">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label" id="p90CoralsLabel">90th Percentile Corals:</span>
+                    <span class="stat-value" id="p90Corals">-</span>
+                </div>
+            </div>
+
+            <div class="display-toggle">
+                <label>
+                    <input type="radio" name="displayMode" value="pulls" checked>
+                    Display as Pulls
+                </label>
+                <label>
+                    <input type="radio" name="displayMode" value="astrites">
+                    Display as Astrites (160 per pull)
+                </label>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="distributionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
