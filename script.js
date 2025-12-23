@@ -1,9 +1,127 @@
+// Game configurations
+const GAME_CONFIGS = {
+    wuwa: {
+        name: 'Wuthering Waves',
+        currency: { primary: 'Astrites', secondary: 'Corals' },
+        currencyMultiplier: 160, // Astrites per pull
+        secondaryCost: 8, // Corals per pull
+        sequenceCost: 370, // Corals per sequence
+        banners: {
+            character: {
+                pity: 80,
+                softPityStart: 66,
+                baseRate: 0.008,
+                softPityRates: [
+                    { start: 66, rate: 0.04 },
+                    { start: 71, rate: 0.08 },
+                    { start: 76, rate: 0.09 }
+                ],
+                hasGuarantee: true,
+                guaranteeRate: 0.5,
+                aRankRate: 0.06,
+                aRankGuaranteeRate: 0.5,
+                aRankPity: 10
+            },
+            weapon: {
+                pity: 80,
+                softPityStart: 66,
+                baseRate: 0.008,
+                softPityRates: [
+                    { start: 66, rate: 0.04 },
+                    { start: 71, rate: 0.08 },
+                    { start: 76, rate: 0.09 }
+                ],
+                hasGuarantee: false,
+                aRankRate: 0.06,
+                aRankGuaranteeRate: 0.5,
+                aRankPity: 10
+            }
+        },
+        tooltips: {
+            aRankTier: 'A-rank Characters at S0 vs S6',
+            sRankTier: 'Standard S-rank Characters at S0 vs S6'
+        },
+        methodology: {
+            softPityText: '4% per pull starting at pull 66, 8% at 71, 9% at 76, experimentally observed on <a href="https://wuwatracker.com/" target="_blank">wuwatracker.com</a>.',
+            sequenceText: 'When spending corals on sequences, after winning the desired character, 370 corals are spent to buy a sequence if available. Corals are not spent at any other time.',
+            pullText: 'When spending corals on pulls, 8 corals are always spent if available. These are not counted in the final pull count.'
+        },
+        coralRewards: {
+            sRankFirst: 15, // S-rank character first copy
+            sRankDupe: 15, // S-rank character dupe
+            sRankDupeM6: 40, // S-rank character dupe at M6
+            sRankWeapon: 15, // S-rank weapon
+            sRank5050Loss: 30, // 50/50 loss reward (in addition to base)
+            aRankDupe: 3, // A-rank character at M0
+            aRankDupeM6: 8, // A-rank character at M6
+            aRankWeapon: 3 // A-rank weapon
+        }
+    },
+    zzz: {
+        name: 'Zenless Zone Zero',
+        currency: { primary: 'Polychromes', secondary: 'Signals' },
+        currencyMultiplier: 160, // Polychromes per pull
+        secondaryCost: 20, // Signals per pull
+        sequenceCost: null, // Cannot buy mindscapes
+        banners: {
+            character: {
+                pity: 90,
+                softPityStart: 76,
+                baseRate: 0.006,
+                softPityRates: [
+                    { start: 76, rate: 0.06 }
+                ],
+                hasGuarantee: true,
+                guaranteeRate: 0.5,
+                aRankRate: 0.094,
+                aRankGuaranteeRate: 0.5,
+                aRankPity: 10
+            },
+            weapon: {
+                pity: 80,
+                softPityStart: 66,
+                baseRate: 0.01,
+                softPityRates: [
+                    { start: 66, rate: 0.06 }
+                ],
+                hasGuarantee: true,
+                guaranteeRate: 0.75,
+                aRankRate: 0.15,
+                aRankGuaranteeRate: 0.75,
+                aRankPity: 10
+            }
+        },
+        tooltips: {
+            aRankTier: 'A-rank Characters at M0 vs M6',
+            sRankTier: 'Standard S-rank Characters at M0 vs M6'
+        },
+        methodology: {
+            softPityText: '6% per pull starting at pull 76 for character banner, 66 for weapon banner, based on community data.',
+            sequenceText: null,
+            pullText: 'When spending signals on pulls, 20 signals are always spent if available. These are not counted in the final pull count.'
+        },
+        coralRewards: {
+            sRankFirst: 0, // S-rank character first copy (no signals)
+            sRankDupe: 40, // S-rank character dupe
+            sRankDupeM6: 100, // S-rank character dupe at M6
+            sRankWeapon: 40, // S-rank weapon
+            aRankDupe: 8, // A-rank character at M0
+            aRankDupeM6: 20, // A-rank character at M6
+            aRankWeapon: 8 // A-rank weapon
+        }
+    }
+};
+
 class GachaSimulator {
     constructor() {
         this.chart = null;
         this.annotationAvailable = false;
+        this.currentGame = 'wuwa';
+        this.gameConfig = GAME_CONFIGS[this.currentGame];
         this.initializeAnnotations();
         this.setupEventListeners();
+        this.initializeGameTabs();
+        this.updateUI();
     }
 
     initializeAnnotations() {
@@ -87,7 +205,12 @@ class GachaSimulator {
         });
 
         // Handle display mode changes
-        document.querySelectorAll('input[name="displayMode"]').forEach(radio => {
+        this.attachDisplayModeEventListeners();
+    }
+
+    attachDisplayModeEventListeners() {
+        const displayModeRadios = document.querySelectorAll('input[name="displayMode"]');
+        displayModeRadios.forEach(radio => {
             radio.addEventListener('change', () => {
                 this.updateDisplayMode();
             });
@@ -99,45 +222,64 @@ class GachaSimulator {
         if (this.lastResults) {
             this.displayResults(this.lastResults);
         }
+
+        // Also update the chart display mode tracking
+        const displayModeElement = document.querySelector('input[name="displayMode"]:checked');
+        if (displayModeElement) {
+            const isAstrites = displayModeElement.value === 'astrites';
+            this.currentDisplayMode = isAstrites ? 'astrites' : 'pulls';
+        }
     }
 
     getParameters() {
-        const coralMode = document.querySelector('input[name="coralMode"]:checked').value;
+        const coralModeElement = document.querySelector('input[name="coralMode"]:checked');
+        const coralMode = coralModeElement ? coralModeElement.value : 'none'; // Default to 'none' if nothing selected
+        const weaponHasGuarantee = this.gameConfig.banners.weapon.hasGuarantee;
+
+        let guaranteed, weaponGuaranteed, characterGuaranteed;
+
+        if (weaponHasGuarantee) {
+            // Separate guarantee selectors
+            characterGuaranteed = document.querySelector('input[name="characterGuaranteed"]:checked')?.value === 'true' || false;
+            weaponGuaranteed = document.querySelector('input[name="weaponGuaranteed"]:checked')?.value === 'true' || false;
+            guaranteed = characterGuaranteed; // For backward compatibility in character banner
+        } else {
+            // Single guarantee selector (applies to character only)
+            guaranteed = document.querySelector('input[name="guaranteed"]:checked')?.value === 'true' || false;
+            characterGuaranteed = guaranteed;
+            weaponGuaranteed = false; // Weapons are always rate-up in games without weapon guarantees
+        }
 
         return {
             simulations: parseInt(document.getElementById('simulations').value),
-            currentPity: parseInt(document.getElementById('currentPity').value),
-            guaranteed: document.getElementById('guaranteed').value === 'true',
+            characterPity: parseInt(document.getElementById('characterPity').value),
+            weaponPity: parseInt(document.getElementById('weaponPity').value),
+            guaranteed: guaranteed,
+            characterGuaranteed: characterGuaranteed,
+            weaponGuaranteed: weaponGuaranteed,
             weaponTarget: parseInt(document.getElementById('weaponTarget').value),
             characterTarget: parseInt(document.getElementById('characterTarget').value),
             startingCorals: parseInt(document.getElementById('startingCorals').value),
-            aRankS0: document.getElementById('aRankS0').checked,
-            standardSRankS0: document.getElementById('standardSRankS0').checked,
+            aRankS0: document.querySelector('input[name="aRankTier"]:checked')?.value === 'm0' || false,
+            standardSRankS0: document.querySelector('input[name="sRankTier"]:checked')?.value === 'm0' || false,
             coralMode: coralMode,
             reinvestCorals: coralMode === 'reinvest', // For backward compatibility
             sequenceMode: coralMode === 'sequences'
         };
     }
 
-    calculateWuWaProbability(pityCount) {
-        // Wuthering Waves Character Banner Rates
-        let baseRate = 0.008; // 0.8%
+    calculateProbability(pityCount, bannerType) {
+        const bannerConfig = this.gameConfig.banners[bannerType];
+        let currentRate = bannerConfig.baseRate;
 
-        // Pity increases at specific thresholds
-        if (pityCount >= 66) {
-            // Climbs by 4% each pull from 66 onwards (4% total)
-            baseRate += 0.04 * (pityCount - 65);
-        }
-        if (pityCount >= 71) {
-            // Climbs by additional 4% each pull from 71 onwards (8% total)
-            baseRate += 0.04 * (pityCount - 70);
-        }
-        if (pityCount >= 76) {
-            // Climbs by additional 1% each pull from 76 onwards (9% total)
-            baseRate += 0.01 * (pityCount - 75);
+        // Apply soft pity increases
+        for (const softPity of bannerConfig.softPityRates) {
+            if (pityCount >= softPity.start) {
+                currentRate += softPity.rate * (pityCount - softPity.start + 1);
+            }
         }
 
-        return Math.min(baseRate, 1.0);
+        return Math.min(currentRate, 1.0); // Cap at 100%
     }
 
     simulateSingleRun(params) {
@@ -151,7 +293,7 @@ class GachaSimulator {
                 ...params,
                 bannerType: 'weapon',
                 target: params.weaponTarget,
-                guaranteed: false, // Weapon banner has no 50/50
+                guaranteed: params.weaponGuaranteed,
                 startingCorals: params.startingCorals,
                 coralMode: 'none' // Always save corals for weapon banner
             });
@@ -164,6 +306,7 @@ class GachaSimulator {
                 ...params,
                 bannerType: 'character',
                 target: params.characterTarget,
+                guaranteed: params.characterGuaranteed,
                 startingCorals: weaponResult.totalCorals // Use corals from weapon banner
             });
         } else if (params.weaponTarget > 0) {
@@ -182,7 +325,9 @@ class GachaSimulator {
     }
 
     simulateBannerRun(params) {
-        let sPityCount = params.currentPity;
+        // Use the appropriate starting pity for the banner type
+        const startingPity = params.bannerType === 'weapon' ? params.weaponPity : params.characterPity;
+        let sPityCount = startingPity;
         let aPityCount = 0; // A-rank pity starts at 0
         let rateUpObtained = 0;
         let actualPulls = 0; // Actual pulls spent (excluding coral reinvestments)
@@ -196,8 +341,8 @@ class GachaSimulator {
         while (rateUpObtained < params.target) {
             // Check if we can use corals for a free pull
             let isFreePull = false;
-            if (params.reinvestCorals && totalCorals >= 8) {
-                totalCorals -= 8;
+            if (params.reinvestCorals && totalCorals >= this.gameConfig.secondaryCost) {
+                totalCorals -= this.gameConfig.secondaryCost;
                 freePullsEarned++;
                 isFreePull = true;
             } else {
@@ -207,7 +352,7 @@ class GachaSimulator {
             sPityCount++;
             aPityCount++;
 
-            const sRankProbability = this.calculateWuWaProbability(sPityCount);
+            const sRankProbability = this.calculateProbability(sPityCount, params.bannerType);
 
             if (Math.random() < sRankProbability) {
                 // Got an S-rank, handle differently based on banner type
@@ -216,30 +361,52 @@ class GachaSimulator {
                 let gotRateUp = false;
 
                 if (params.bannerType === 'weapon') {
-                    // Weapon banner: no 50/50, always get the rate-up weapon
-                    rateUpObtained++;
-                    gotRateUp = true;
-                    coralsFromSRank = 15; // Always 15 corals for rate-up weapon
+                    // Weapon banner: different logic based on game
+                    const weaponConfig = this.gameConfig.banners.weapon;
+                    if (weaponConfig.hasGuarantee) {
+                        // Game has weapon guarantee system (like ZZZ)
+                        if (isGuaranteed || Math.random() < weaponConfig.guaranteeRate) {
+                            rateUpObtained++;
+                            gotRateUp = true;
+                            isGuaranteed = false;
+                        } else {
+                            isGuaranteed = true;
+                        }
+                    } else {
+                        // No guarantee system (like WuWa)
+                        rateUpObtained++;
+                        gotRateUp = true;
+                    }
+                    coralsFromSRank = this.gameConfig.coralRewards.sRankWeapon;
                 } else {
                     // Character banner: 50/50 system
+                    const charConfig = this.gameConfig.banners.character;
                     if (isGuaranteed) {
                         // Guaranteed rate-up
                         rateUpObtained++;
                         gotRateUp = true;
                         isGuaranteed = false; // Reset to 50/50 after guaranteed
-                        coralsFromSRank = 15; // Always 15 corals for rate-up
+                        coralsFromSRank = this.gameConfig.coralRewards.sRankFirst;
                     } else {
                         // 50/50 chance
-                        if (Math.random() < 0.5) {
+                        if (Math.random() < charConfig.guaranteeRate) {
                             // Won 50/50, got rate-up
                             rateUpObtained++;
                             gotRateUp = true;
-                            coralsFromSRank = 15; // Always 15 corals for rate-up
+                            coralsFromSRank = this.gameConfig.coralRewards.sRankFirst;
                             // Next remains 50/50
                         } else {
                             // Lost 50/50, got standard S-rank
                             isGuaranteed = true; // Next S-rank is guaranteed rate-up
-                            coralsFromSRank = params.standardSRankS0 ? 45 : 70; // Based on config
+                            let baseCorals = params.characterS6 ?
+                                this.gameConfig.coralRewards.sRankDupeM6 :
+                                this.gameConfig.coralRewards.sRankDupe;
+
+                            // Add 50/50 loss bonus if game supports it
+                            if (this.gameConfig.coralRewards.sRank5050Loss) {
+                                baseCorals += this.gameConfig.coralRewards.sRank5050Loss;
+                            }
+                            coralsFromSRank = baseCorals;
                         }
                     }
                 }
@@ -253,16 +420,17 @@ class GachaSimulator {
                 // This happens after resetting pity, so we're now at 0 pity and 50/50 state
                 if (params.sequenceMode && params.bannerType === 'character' && gotRateUp &&
                     !isGuaranteed) { // At 0 pity and 50/50 state after winning
-                    while (totalCorals >= 370 && rateUpObtained < params.target) {
-                        totalCorals -= 370;
+                    while (this.gameConfig.sequenceCost && totalCorals >= this.gameConfig.sequenceCost && rateUpObtained < params.target) {
+                        totalCorals -= this.gameConfig.sequenceCost;
                         rateUpObtained++;
                         sequencesPurchased++;
                     }
                 }
             } else {
                 // Didn't get S-rank, check for A-rank
-                const aRankProbability = 0.06; // 6% base rate
-                const guaranteedARank = aPityCount >= 10; // Guaranteed on 10th pull
+                const bannerConfig = this.gameConfig.banners[params.bannerType];
+                const aRankProbability = bannerConfig.aRankRate;
+                const guaranteedARank = aPityCount >= bannerConfig.aRankPity;
 
                 if (guaranteedARank || Math.random() < aRankProbability) {
                     // Got an A-rank
@@ -296,35 +464,37 @@ class GachaSimulator {
     }
 
     calculateARankCorals(aIsGuaranteed, params) {
+        const bannerConfig = this.gameConfig.banners[params.bannerType];
+
         if (aIsGuaranteed) {
             // Guaranteed A-rank rate-up
             if (params.bannerType === 'weapon') {
-                // Weapon banner: guaranteed A-rank is always a weapon (3 corals)
+                // Weapon banner: guaranteed A-rank is always a weapon
                 return {
-                    corals: 3,
+                    corals: this.gameConfig.coralRewards.aRankWeapon,
                     newGuaranteeState: false // Reset after guaranteed
                 };
             } else {
                 // Character banner: guaranteed A-rank rate-up character
                 return {
-                    corals: params.aRankS0 ? 3 : 8,
+                    corals: params.aRankS6 ? this.gameConfig.coralRewards.aRankDupeM6 : this.gameConfig.coralRewards.aRankDupe,
                     newGuaranteeState: false // Reset after guaranteed
                 };
             }
         } else {
-            // A-rank 50/50
-            if (Math.random() < 0.5) {
+            // A-rank rate-up chance (banner-specific)
+            if (Math.random() < bannerConfig.aRankGuaranteeRate) {
                 // Won A-rank 50/50
                 if (params.bannerType === 'weapon') {
                     // Weapon banner: won 50/50, got rate-up weapon (always 3 corals)
                     return {
-                        corals: 3,
+                        corals: this.gameConfig.coralRewards.aRankWeapon,
                         newGuaranteeState: false // Remains 50/50
                     };
                 } else {
                     // Character banner: won 50/50, got rate-up character
                     return {
-                        corals: params.aRankS0 ? 3 : 8,
+                        corals: params.aRankS6 ? this.gameConfig.coralRewards.aRankDupeM6 : this.gameConfig.coralRewards.aRankDupe,
                         newGuaranteeState: false // Remains 50/50
                     };
                 }
@@ -335,13 +505,13 @@ class GachaSimulator {
                     if (Math.random() < 0.5) {
                         // Character banner standard A-rank
                         return {
-                            corals: params.aRankS0 ? 3 : 8,
+                            corals: params.aRankS6 ? this.gameConfig.coralRewards.aRankDupeM6 : this.gameConfig.coralRewards.aRankDupe,
                             newGuaranteeState: true // Next A-rank is guaranteed rate-up
                         };
                     } else {
                         // Weapon banner A-rank (always 3 corals)
                         return {
-                            corals: 3,
+                            corals: this.gameConfig.coralRewards.aRankWeapon,
                             newGuaranteeState: true // Next A-rank is guaranteed rate-up
                         };
                     }
@@ -350,13 +520,13 @@ class GachaSimulator {
                     if (Math.random() < 0.5) {
                         // Character banner standard A-rank
                         return {
-                            corals: params.aRankS0 ? 3 : 8,
+                            corals: params.aRankS6 ? this.gameConfig.coralRewards.aRankDupeM6 : this.gameConfig.coralRewards.aRankDupe,
                             newGuaranteeState: true // Next A-rank is guaranteed rate-up
                         };
                     } else {
                         // Weapon banner A-rank (always 3 corals)
                         return {
-                            corals: 3,
+                            corals: this.gameConfig.coralRewards.aRankWeapon,
                             newGuaranteeState: true // Next A-rank is guaranteed rate-up
                         };
                     }
@@ -466,66 +636,118 @@ class GachaSimulator {
         // Store results for display mode switching
         this.lastResults = results;
 
-        // Check display mode
-        const displayMode = document.querySelector('input[name="displayMode"]:checked').value;
-        const multiplier = displayMode === 'astrites' ? 160 : 1;
-        const unit = displayMode === 'astrites' ? 'Astrites' : 'Pulls';
+        // Check display mode with null safety
+        const displayModeElement = document.querySelector('input[name="displayMode"]:checked');
+        const displayMode = displayModeElement ? displayModeElement.value : 'pulls';
+        const multiplier = displayMode === 'astrites' ? this.gameConfig.currencyMultiplier : 1;
+        const unit = displayMode === 'astrites' ? this.gameConfig.currency.primary : 'Pulls';
 
         const stats = this.calculateStats(results);
 
-        // Update pull statistics labels and values
-        document.getElementById('pullStatsTitle').textContent = `${unit} Statistics`;
-        document.getElementById('avgPullsLabel').textContent = `Average ${unit}:`;
-        document.getElementById('medianPullsLabel').textContent = `Median ${unit}:`;
-        document.getElementById('minPullsLabel').textContent = `Min ${unit}:`;
-        document.getElementById('maxPullsLabel').textContent = `Max ${unit}:`;
-        document.getElementById('p90PullsLabel').textContent = `90th Percentile ${unit}:`;
+        // Update pull statistics labels and values with null checking
+        const pullStatsTitle = document.getElementById('pullStatsTitle');
+        if (pullStatsTitle) pullStatsTitle.textContent = `${unit} Statistics`;
 
-        document.getElementById('avgPulls').textContent = (stats.pulls.average * multiplier).toFixed(multiplier === 160 ? 0 : 1);
-        document.getElementById('medianPulls').textContent = stats.pulls.median * multiplier;
-        document.getElementById('minPulls').textContent = stats.pulls.min * multiplier;
-        document.getElementById('maxPulls').textContent = stats.pulls.max * multiplier;
-        document.getElementById('p90Pulls').textContent = stats.pulls.p90 * multiplier;
+        const avgPullsLabel = document.getElementById('avgPullsLabel');
+        if (avgPullsLabel) avgPullsLabel.textContent = `Average ${unit}:`;
 
-        // Update A-rank statistics
-        document.getElementById('avgARanks').textContent = stats.aRanks.average.toFixed(1);
-        document.getElementById('medianARanks').textContent = stats.aRanks.median;
-        document.getElementById('minARanks').textContent = stats.aRanks.min;
-        document.getElementById('maxARanks').textContent = stats.aRanks.max;
-        document.getElementById('p90ARanks').textContent = stats.aRanks.p90;
+        const medianPullsLabel = document.getElementById('medianPullsLabel');
+        if (medianPullsLabel) medianPullsLabel.textContent = `Median ${unit}:`;
+
+        const minPullsLabel = document.getElementById('minPullsLabel');
+        if (minPullsLabel) minPullsLabel.textContent = `Min ${unit}:`;
+
+        const maxPullsLabel = document.getElementById('maxPullsLabel');
+        if (maxPullsLabel) maxPullsLabel.textContent = `Max ${unit}:`;
+
+        const p90PullsLabel = document.getElementById('p90PullsLabel');
+        if (p90PullsLabel) p90PullsLabel.textContent = `90th Percentile ${unit}:`;
+
+        const avgPulls = document.getElementById('avgPulls');
+        if (avgPulls) avgPulls.textContent = (stats.pulls.average * multiplier).toFixed(multiplier === 160 ? 0 : 1);
+
+        const medianPulls = document.getElementById('medianPulls');
+        if (medianPulls) medianPulls.textContent = stats.pulls.median * multiplier;
+
+        const minPulls = document.getElementById('minPulls');
+        if (minPulls) minPulls.textContent = stats.pulls.min * multiplier;
+
+        const maxPulls = document.getElementById('maxPulls');
+        if (maxPulls) maxPulls.textContent = stats.pulls.max * multiplier;
+
+        const p90Pulls = document.getElementById('p90Pulls');
+        if (p90Pulls) p90Pulls.textContent = stats.pulls.p90 * multiplier;
+
+        // Update A-rank statistics with null checking
+        const avgARanks = document.getElementById('avgARanks');
+        if (avgARanks) avgARanks.textContent = stats.aRanks.average.toFixed(1);
+
+        const medianARanks = document.getElementById('medianARanks');
+        if (medianARanks) medianARanks.textContent = stats.aRanks.median;
+
+        const minARanks = document.getElementById('minARanks');
+        if (minARanks) minARanks.textContent = stats.aRanks.min;
+
+        const maxARanks = document.getElementById('maxARanks');
+        if (maxARanks) maxARanks.textContent = stats.aRanks.max;
+
+        const p90ARanks = document.getElementById('p90ARanks');
+        if (p90ARanks) p90ARanks.textContent = stats.aRanks.p90;
 
         // Update coral statistics with dynamic labels
         const params = this.getParameters();
         let coralType, coralTitle;
 
+        const currencyName = this.gameConfig.currency.secondary;
         switch (params.coralMode) {
             case 'reinvest':
                 coralType = "Free Pulls";
                 coralTitle = "Free Pulls Statistics";
                 break;
             case 'sequences':
-                coralType = "Leftover Corals";
-                coralTitle = "Leftover Coral Statistics";
+                coralType = `Leftover ${currencyName}`;
+                coralTitle = `Leftover ${currencyName} Statistics`;
                 break;
             case 'none':
             default:
-                coralType = "Corals";
-                coralTitle = "Coral Statistics";
+                coralType = currencyName;
+                coralTitle = `${currencyName} Statistics`;
                 break;
         }
 
-        document.getElementById('coralStatsTitle').textContent = coralTitle;
-        document.getElementById('avgCoralsLabel').textContent = `Average ${coralType}:`;
-        document.getElementById('medianCoralsLabel').textContent = `Median ${coralType}:`;
-        document.getElementById('minCoralsLabel').textContent = `Min ${coralType}:`;
-        document.getElementById('maxCoralsLabel').textContent = `Max ${coralType}:`;
-        document.getElementById('p90CoralsLabel').textContent = `90th Percentile ${coralType}:`;
+        // Update coral statistics with null checking
+        const coralStatsTitle = document.getElementById('coralStatsTitle');
+        if (coralStatsTitle) coralStatsTitle.textContent = coralTitle;
 
-        document.getElementById('avgCorals').textContent = stats.corals.average.toFixed(1);
-        document.getElementById('medianCorals').textContent = stats.corals.median;
-        document.getElementById('minCorals').textContent = stats.corals.min;
-        document.getElementById('maxCorals').textContent = stats.corals.max;
-        document.getElementById('p90Corals').textContent = stats.corals.p90;
+        const avgCoralsLabel = document.getElementById('avgCoralsLabel');
+        if (avgCoralsLabel) avgCoralsLabel.textContent = `Average ${coralType}:`;
+
+        const medianCoralsLabel = document.getElementById('medianCoralsLabel');
+        if (medianCoralsLabel) medianCoralsLabel.textContent = `Median ${coralType}:`;
+
+        const minCoralsLabel = document.getElementById('minCoralsLabel');
+        if (minCoralsLabel) minCoralsLabel.textContent = `Min ${coralType}:`;
+
+        const maxCoralsLabel = document.getElementById('maxCoralsLabel');
+        if (maxCoralsLabel) maxCoralsLabel.textContent = `Max ${coralType}:`;
+
+        const p90CoralsLabel = document.getElementById('p90CoralsLabel');
+        if (p90CoralsLabel) p90CoralsLabel.textContent = `90th Percentile ${coralType}:`;
+
+        const avgCorals = document.getElementById('avgCorals');
+        if (avgCorals) avgCorals.textContent = stats.corals.average.toFixed(1);
+
+        const medianCorals = document.getElementById('medianCorals');
+        if (medianCorals) medianCorals.textContent = stats.corals.median;
+
+        const minCorals = document.getElementById('minCorals');
+        if (minCorals) minCorals.textContent = stats.corals.min;
+
+        const maxCorals = document.getElementById('maxCorals');
+        if (maxCorals) maxCorals.textContent = stats.corals.max;
+
+        const p90Corals = document.getElementById('p90Corals');
+        if (p90Corals) p90Corals.textContent = stats.corals.p90;
 
         // Create chart
         const pullCounts = results.map(r => r.totalPulls);
@@ -539,9 +761,10 @@ class GachaSimulator {
             this.chart.destroy();
         }
 
-        const isAstrites = document.querySelector('input[name="displayMode"]:checked').value === 'astrites';
-        const multiplier = isAstrites ? 160 : 1;
-        const unit = isAstrites ? 'Astrites' : 'Pulls';
+        const displayModeElement = document.querySelector('input[name="displayMode"]:checked');
+        const isAstrites = displayModeElement ? displayModeElement.value === 'astrites' : false;
+        const multiplier = isAstrites ? this.gameConfig.currencyMultiplier : 1;
+        const unit = isAstrites ? this.gameConfig.currency.primary : 'Pulls';
 
         const convertedResults = results.map(r => r * multiplier);
         const histogram = this.createHistogram(convertedResults);
@@ -633,6 +856,208 @@ class GachaSimulator {
         }
 
         return null;
+    }
+
+    initializeGameTabs() {
+        // Set up tab switching
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                this.switchGame(e.target.dataset.game);
+            });
+        });
+
+        // Check URL hash for direct game link
+        const hash = window.location.hash.substring(1);
+        if (hash && GAME_CONFIGS[hash]) {
+            this.switchGame(hash);
+        }
+    }
+
+    switchGame(gameKey) {
+        // Update active game
+        this.currentGame = gameKey;
+        this.gameConfig = GAME_CONFIGS[gameKey];
+
+        // Update tab buttons
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-game="${gameKey}"]`).classList.add('active');
+
+        // Update URL hash
+        window.location.hash = gameKey;
+
+        // Update UI elements
+        this.updateUI();
+    }
+
+    updateUI() {
+        // Update page title
+        document.getElementById('main-title').textContent = `${this.gameConfig.name} RNG Simulator`;
+
+        // Update methodology content
+        this.updateMethodology();
+
+        // Update display mode labels
+        this.updateDisplayModeLabels();
+
+        // Update coral mode section
+        this.updateCoralModeSection();
+
+        // Update guarantee selectors
+        this.updateGuaranteeSelectors();
+
+        // Update pity max values
+        this.updatePityMaxValues();
+
+        // Ensure coral mode has a valid selection
+        this.ensureCoralModeSelection();
+    }
+
+    updateMethodology() {
+        const methodologyContent = document.querySelector('.methodology-content ul');
+
+        const sequenceItem = this.gameConfig.methodology.sequenceText ?
+            `<li>${this.gameConfig.methodology.sequenceText}</li>` : '';
+
+        methodologyContent.innerHTML = `
+            <li>When pulling for both weapons and characters, weapons are pulled first.</li>
+            <li>${this.gameConfig.methodology.pullText}</li>
+            ${sequenceItem}
+            <li>Soft pity is calculated at ${this.gameConfig.methodology.softPityText}</li>
+        `;
+    }
+
+    updateDisplayModeLabels() {
+        const pullsLabel = document.querySelector('label[for="pullsMode"]');
+        const astritesLabel = document.querySelector('label[for="astritesMode"]');
+
+        if (pullsLabel) {
+            pullsLabel.textContent = `Display as Pulls`;
+        }
+        if (astritesLabel) {
+            astritesLabel.textContent = `Display as ${this.gameConfig.currency.primary} (${this.gameConfig.currencyMultiplier} per pull)`;
+        }
+    }
+
+    updateCoralModeSection() {
+        const secondaryCurrency = this.gameConfig.currency.secondary;
+        const secondaryCurrencyLower = secondaryCurrency.toLowerCase();
+
+        // Update all currency labels
+        const currencyElements = document.querySelectorAll('[data-currency="coral"]');
+        currencyElements.forEach(element => {
+            element.textContent = secondaryCurrency.slice(0, -1); // Remove 's' from plural
+        });
+
+        // Update currency names (like "Starting Corals:")
+        const startingLabel = document.querySelector('label[for="startingCorals"]');
+        if (startingLabel) {
+            startingLabel.innerHTML = `Starting <span data-currency="coral">${secondaryCurrency}</span>:`;
+        }
+
+        // Update game-specific tooltips and tier labels
+        const aRankTooltip = document.querySelector('[data-game-tooltip="arank"]');
+        if (aRankTooltip) {
+            aRankTooltip.textContent = 'A-rank Characters:';
+        }
+
+        const sRankTooltip = document.querySelector('[data-game-tooltip="srank"]');
+        if (sRankTooltip) {
+            sRankTooltip.textContent = 'Standard S-rank Characters:';
+        }
+
+        // Update tier labels based on game (S0/S6 for WuWa, M0/M6 for others)
+        const tierSuffix = this.currentGame === 'wuwa' ? 'S' : 'M';
+
+        const aRankM0Label = document.querySelector('label[for="aRankM0"]');
+        if (aRankM0Label) aRankM0Label.textContent = `${tierSuffix}0`;
+
+        const aRankM6Label = document.querySelector('label[for="aRankM6"]');
+        if (aRankM6Label) aRankM6Label.textContent = `${tierSuffix}6`;
+
+        const sRankM0Label = document.querySelector('label[for="sRankM0"]');
+        if (sRankM0Label) sRankM0Label.textContent = `${tierSuffix}0`;
+
+        const sRankM6Label = document.querySelector('label[for="sRankM6"]');
+        if (sRankM6Label) sRankM6Label.textContent = `${tierSuffix}6`;
+
+        // Update labels with exact text strings
+        const saveLabel = document.querySelector('label[for="coralModeNone"]');
+        if (saveLabel) {
+            saveLabel.textContent = `Don't spend ${secondaryCurrencyLower} (save all)`;
+        }
+
+        const reinvestLabel = document.querySelector('label[for="coralModeReinvest"]');
+        if (reinvestLabel) {
+            reinvestLabel.textContent = `Reinvest ${secondaryCurrency} as Free Pulls`;
+        }
+
+        const sequencesLabel = document.querySelector('label[for="coralModeSequences"]');
+        if (sequencesLabel) {
+            sequencesLabel.textContent = `Buy Sequences with ${secondaryCurrency}`;
+        }
+
+        // Hide sequence mode if game doesn't support it
+        const sequenceMode = document.querySelector('input[value="sequences"]');
+        if (sequenceMode) {
+            const sequenceContainer = sequenceMode.closest('.config-item');
+            if (this.gameConfig.sequenceCost === null) {
+                sequenceContainer.style.display = 'none';
+                // Switch to reinvest mode if currently on sequences
+                if (sequenceMode.checked) {
+                    const reinvestOption = document.querySelector('input[value="reinvest"]');
+                    if (reinvestOption) reinvestOption.checked = true;
+                }
+            } else {
+                sequenceContainer.style.display = 'block';
+            }
+        }
+    }
+
+    updateGuaranteeSelectors() {
+        const singleGuarantee = document.getElementById('sRankGuaranteedItem');
+        const characterGuarantee = document.getElementById('characterGuaranteedItem');
+        const weaponGuarantee = document.getElementById('weaponGuaranteedItem');
+
+        const weaponHasGuarantee = this.gameConfig.banners.weapon.hasGuarantee;
+
+        if (weaponHasGuarantee) {
+            // Show separate selectors for character and weapon (like ZZZ)
+            if (singleGuarantee) singleGuarantee.style.display = 'none';
+            if (characterGuarantee) characterGuarantee.style.display = 'block';
+            if (weaponGuarantee) weaponGuarantee.style.display = 'block';
+        } else {
+            // Show single selector for character only (like WuWa - weapons are always rate-up)
+            if (singleGuarantee) singleGuarantee.style.display = 'block';
+            if (characterGuarantee) characterGuarantee.style.display = 'none';
+            if (weaponGuarantee) weaponGuarantee.style.display = 'none';
+        }
+    }
+
+    updatePityMaxValues() {
+        const characterPityInput = document.getElementById('characterPity');
+        const weaponPityInput = document.getElementById('weaponPity');
+
+        if (characterPityInput) {
+            characterPityInput.max = this.gameConfig.banners.character.pity;
+        }
+
+        if (weaponPityInput) {
+            weaponPityInput.max = this.gameConfig.banners.weapon.pity;
+        }
+    }
+
+    ensureCoralModeSelection() {
+        const selectedMode = document.querySelector('input[name="coralMode"]:checked');
+
+        if (!selectedMode) {
+            // No selection found, default to 'none'
+            const noneOption = document.querySelector('input[name="coralMode"][value="none"]');
+            if (noneOption) {
+                noneOption.checked = true;
+            }
+        }
     }
 
 }

@@ -10,7 +10,12 @@
 </head>
 <body>
     <div class="container">
-        <h1>Wuthering Waves RNG Simulator</h1>
+        <h1 id="main-title">Gacha RNG Simulator</h1>
+
+        <div class="game-tabs">
+            <button class="tab-button active" data-game="wuwa">Wuthering Waves</button>
+            <button class="tab-button" data-game="zzz">Zenless Zone Zero</button>
+        </div>
 
         <div class="methodology-section">
             <details>
@@ -49,62 +54,109 @@
                 </div>
 
                 <div class="config-item">
-                    <label for="currentPity">Starting Pity Count:</label>
-                    <input type="number" id="currentPity" min="0" max="80" value="0">
+                    <label for="characterPity">Character Starting Pity:</label>
+                    <input type="number" id="characterPity" min="0" max="90" value="0">
+                </div>
+
+                <div class="config-item">
+                    <label for="weaponPity">Weapon Starting Pity:</label>
+                    <input type="number" id="weaponPity" min="0" max="80" value="0">
                 </div>
 
                 <div class="config-item" id="sRankGuaranteedItem">
-                    <label for="guaranteed">Next S-rank Guaranteed:</label>
-                    <select id="guaranteed">
-                        <option value="false">No (50/50)</option>
-                        <option value="true">Yes (Guaranteed)</option>
-                    </select>
+                    <label>Character Guaranteed:</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="guaranteedNo" name="guaranteed" value="false" checked>
+                            <label for="guaranteedNo">No</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="guaranteedYes" name="guaranteed" value="true">
+                            <label for="guaranteedYes">Yes</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-item" id="characterGuaranteedItem" style="display: none;">
+                    <label>Character Guaranteed:</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="charGuaranteedNo" name="characterGuaranteed" value="false" checked>
+                            <label for="charGuaranteedNo">No</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="charGuaranteedYes" name="characterGuaranteed" value="true">
+                            <label for="charGuaranteedYes">Yes</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-item" id="weaponGuaranteedItem" style="display: none;">
+                    <label>Weapon Guaranteed:</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="weaponGuaranteedNo" name="weaponGuaranteed" value="false" checked>
+                            <label for="weaponGuaranteedNo">No</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="weaponGuaranteedYes" name="weaponGuaranteed" value="true">
+                            <label for="weaponGuaranteedYes">Yes</label>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <h2>Coral Settings</h2>
+            <h2><span data-currency="coral">Coral</span> Settings</h2>
             <div class="config-grid">
                 <div class="config-item">
-                    <label for="startingCorals">Starting Corals:</label>
+                    <label for="startingCorals">Starting <span data-currency="coral">Corals</span>:</label>
                     <input type="number" id="startingCorals" min="0" max="10000" value="0">
                 </div>
 
                 <div class="config-item">
-                    <label>
-                        <input type="checkbox" id="aRankS0" checked>
-                        A-rank Characters at S0 (3 corals vs 8 at S6)
-                    </label>
+                    <label data-game-tooltip="arank">A-rank Characters:</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="aRankM0" name="aRankTier" value="m0">
+                            <label for="aRankM0">M0</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="aRankM6" name="aRankTier" value="m6" checked>
+                            <label for="aRankM6">M6</label>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="config-item">
-                    <label>
-                        <input type="checkbox" id="standardSRankS0" checked>
-                        Standard S-rank Characters at S0 (45 corals vs 70 at S6)
-                    </label>
+                    <label data-game-tooltip="srank">Standard S-rank Characters:</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="sRankM0" name="sRankTier" value="m0" checked>
+                            <label for="sRankM0">M0</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="sRankM6" name="sRankTier" value="m6">
+                            <label for="sRankM6">M6</label>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <h2>Coral Usage Mode</h2>
+            <h2><span data-currency="coral">Coral</span> Usage Mode</h2>
             <div class="config-grid">
-                <div class="config-item">
-                    <label>
-                        <input type="radio" name="coralMode" value="none" checked>
-                        Don't spend corals (save all)
-                    </label>
+                <div class="config-item radio-item">
+                    <input type="radio" id="coralModeNone" name="coralMode" value="none" checked>
+                    <label for="coralModeNone">Don't spend <span data-currency="coral">corals</span> (save all)</label>
                 </div>
 
-                <div class="config-item">
-                    <label>
-                        <input type="radio" name="coralMode" value="reinvest">
-                        Reinvest Corals as Free Pulls (8 corals = 1 pull)
-                    </label>
+                <div class="config-item radio-item">
+                    <input type="radio" id="coralModeReinvest" name="coralMode" value="reinvest">
+                    <label for="coralModeReinvest">Reinvest <span data-currency="coral">Corals</span> as Free Pulls (8 <span data-currency="coral">corals</span> = 1 pull)</label>
                 </div>
 
-                <div class="config-item">
-                    <label>
-                        <input type="radio" name="coralMode" value="sequences">
-                        Buy Sequences with Corals (370 corals = 1 character)
-                    </label>
+                <div class="config-item radio-item">
+                    <input type="radio" id="coralModeSequences" name="coralMode" value="sequences">
+                    <label for="coralModeSequences">Buy Sequences with <span data-currency="coral">Corals</span> (370 <span data-currency="coral">corals</span> = 1 character)</label>
                 </div>
             </div>
 
@@ -187,14 +239,14 @@
             </div>
 
             <div class="display-toggle">
-                <label>
-                    <input type="radio" name="displayMode" value="pulls" checked>
-                    Display as Pulls
-                </label>
-                <label>
-                    <input type="radio" name="displayMode" value="astrites">
-                    Display as Astrites (160 per pull)
-                </label>
+                <div>
+                    <input type="radio" id="pullsMode" name="displayMode" value="pulls" checked>
+                    <label for="pullsMode">Display as Pulls</label>
+                </div>
+                <div>
+                    <input type="radio" id="astritesMode" name="displayMode" value="astrites">
+                    <label for="astritesMode">Display as Astrites (160 per pull)</label>
+                </div>
             </div>
 
             <div class="chart-container">
