@@ -294,8 +294,8 @@ class GachaSimulator {
                 bannerType: 'weapon',
                 target: params.weaponTarget,
                 guaranteed: params.weaponGuaranteed,
-                startingCorals: params.startingCorals,
-                coralMode: 'none' // Always save corals for weapon banner
+                startingCorals: params.startingCorals
+                // Use the actual coralMode selected by user
             });
         } else {
             weaponResult.totalCorals = params.startingCorals; // No weapon pulls, keep starting corals
@@ -311,7 +311,7 @@ class GachaSimulator {
             });
         } else if (params.weaponTarget > 0) {
             // Only weapons, apply coral mode to weapon result
-            characterResult.totalCorals = this.calculateCoralResult(params, weaponResult.totalCorals, 0, 0);
+            characterResult.totalCorals = this.calculateCoralResult(params, weaponResult.rawCorals, weaponResult.freePullsEarned, weaponResult.sequencesPurchased);
         } else {
             // Neither weapons nor characters - just return starting corals
             characterResult.totalCorals = params.startingCorals;
@@ -320,7 +320,7 @@ class GachaSimulator {
         return {
             totalPulls: weaponResult.totalPulls + characterResult.totalPulls,
             totalARanks: weaponResult.totalARanks + characterResult.totalARanks,
-            totalCorals: params.characterTarget > 0 ? characterResult.totalCorals : this.calculateCoralResult(params, weaponResult.totalCorals, 0, 0)
+            totalCorals: params.characterTarget > 0 ? characterResult.totalCorals : this.calculateCoralResult(params, weaponResult.rawCorals, weaponResult.freePullsEarned, weaponResult.sequencesPurchased)
         };
     }
 
@@ -341,7 +341,9 @@ class GachaSimulator {
         while (rateUpObtained < params.target) {
             // Check if we can use corals for a free pull
             let isFreePull = false;
-            if (params.reinvestCorals && totalCorals >= this.gameConfig.secondaryCost) {
+            const shouldReinvest = params.reinvestCorals || params.coralMode === 'reinvest';
+
+            if (shouldReinvest && totalCorals >= this.gameConfig.secondaryCost) {
                 totalCorals -= this.gameConfig.secondaryCost;
                 freePullsEarned++;
                 isFreePull = true;
@@ -447,7 +449,10 @@ class GachaSimulator {
         return {
             totalPulls: actualPulls,
             totalARanks: totalARanks,
-            totalCorals: this.calculateCoralResult(params, totalCorals, freePullsEarned, sequencesPurchased)
+            totalCorals: this.calculateCoralResult(params, totalCorals, freePullsEarned, sequencesPurchased),
+            freePullsEarned: freePullsEarned,
+            sequencesPurchased: sequencesPurchased,
+            rawCorals: totalCorals
         };
     }
 
