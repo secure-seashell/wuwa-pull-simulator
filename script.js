@@ -323,18 +323,15 @@ class GachaSimulator {
                 guaranteed: params.characterGuaranteed,
                 startingCorals: weaponResult.totalCorals // Use corals from weapon banner
             });
-        } else if (params.weaponTarget > 0) {
-            // Only weapons, apply coral mode to weapon result
-            characterResult.totalCorals = this.calculateCoralResult(params, weaponResult.rawCorals, weaponResult.freePullsEarned, weaponResult.sequencesPurchased);
         } else {
-            // Neither weapons nor characters - just return starting corals
-            characterResult.totalCorals = params.startingCorals;
+            // Only weapons, apply coral mode to weapon result
+            characterResult.totalCorals = weaponResult.totalCorals;
         }
 
         return {
             totalPulls: weaponResult.totalPulls + characterResult.totalPulls,
             totalARanks: weaponResult.totalARanks + characterResult.totalARanks,
-            totalCorals: params.characterTarget > 0 ? characterResult.totalCorals : this.calculateCoralResult(params, weaponResult.rawCorals, weaponResult.freePullsEarned, weaponResult.sequencesPurchased)
+            totalCorals: characterResult.totalCorals
         };
     }
 
@@ -431,23 +428,11 @@ class GachaSimulator {
         return {
             totalPulls: actualPulls,
             totalARanks: totalARanks,
-            totalCorals: this.calculateCoralResult(params, totalCorals, freePullsEarned, sequencesPurchased),
+            totalCorals: totalCorals,
             freePullsEarned: freePullsEarned,
             sequencesPurchased: sequencesPurchased,
             rawCorals: totalCorals
         };
-    }
-
-    calculateCoralResult(params, totalCorals, freePullsEarned, sequencesPurchased) {
-        switch (params.coralMode) {
-            case 'reinvest':
-                return freePullsEarned;
-            case 'sequences':
-                return totalCorals; // Leftover corals after sequence purchases
-            case 'none':
-            default:
-                return totalCorals; // All corals saved
-        }
     }
 
     async runSimulation() {
