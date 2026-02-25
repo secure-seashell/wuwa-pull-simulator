@@ -331,7 +331,8 @@ class GachaSimulator {
         return {
             totalPulls: weaponResult.totalPulls + characterResult.totalPulls,
             totalARanks: weaponResult.totalARanks + characterResult.totalARanks,
-            totalCorals: characterResult.totalCorals
+            totalCorals: characterResult.totalCorals,
+            freePullsEarned: weaponResult.freePullsEarned + characterResult.freePullsEarned
         };
     }
 
@@ -430,8 +431,7 @@ class GachaSimulator {
             totalARanks: totalARanks,
             totalCorals: totalCorals,
             freePullsEarned: freePullsEarned,
-            sequencesPurchased: sequencesPurchased,
-            rawCorals: totalCorals
+            sequencesPurchased: sequencesPurchased
         };
     }
 
@@ -486,33 +486,31 @@ class GachaSimulator {
         const pullCounts = results.map(r => r.totalPulls);
         const aRankCounts = results.map(r => r.totalARanks);
         const coralCounts = results.map(r => r.totalCorals);
+        const freePullCounts = results.map(r => r.freePullsEarned);
 
         const sortedPulls = [...pullCounts].sort((a, b) => a - b);
         const sortedARanks = [...aRankCounts].sort((a, b) => a - b);
         const sortedCorals = [...coralCounts].sort((a, b) => a - b);
+        const sortedFreePulls = [...freePullCounts].sort((a, b) => a - b);
+
+        function stats(fieldName) {
+            const counts = results.map(r => r[fieldName]);
+            const sorted = [...counts].sort((a, b) => a - b);
+
+            return {
+                average: counts.reduce((sum, val) => sum + val, 0) / counts.length,
+                median: sorted[Math.floor(sorted.length / 2)],
+                min: Math.min(...counts),
+                max: Math.max(...counts),
+                p90: sorted[Math.floor(sorted.length * 0.9)]
+            }
+        }
 
         return {
-            pulls: {
-                average: pullCounts.reduce((sum, val) => sum + val, 0) / pullCounts.length,
-                median: sortedPulls[Math.floor(sortedPulls.length / 2)],
-                min: Math.min(...pullCounts),
-                max: Math.max(...pullCounts),
-                p90: sortedPulls[Math.floor(sortedPulls.length * 0.9)]
-            },
-            aRanks: {
-                average: aRankCounts.reduce((sum, val) => sum + val, 0) / aRankCounts.length,
-                median: sortedARanks[Math.floor(sortedARanks.length / 2)],
-                min: Math.min(...aRankCounts),
-                max: Math.max(...aRankCounts),
-                p90: sortedARanks[Math.floor(sortedARanks.length * 0.9)]
-            },
-            corals: {
-                average: coralCounts.reduce((sum, val) => sum + val, 0) / coralCounts.length,
-                median: sortedCorals[Math.floor(sortedCorals.length / 2)],
-                min: Math.min(...coralCounts),
-                max: Math.max(...coralCounts),
-                p90: sortedCorals[Math.floor(sortedCorals.length * 0.9)]
-            }
+            pulls: stats("totalPulls"),
+            aRanks: stats("totalARanks"),
+            corals: stats("totalCorals"),
+            freePulls: stats("freePullsEarned")
         };
     }
 
@@ -596,22 +594,25 @@ class GachaSimulator {
 
         // Update coral statistics with dynamic labels
         const params = this.getParameters();
-        let coralType, coralTitle;
+        let coralType, coralTitle, coralStats;
 
         const currencyName = this.gameConfig.currency.secondary;
         switch (params.coralMode) {
             case 'reinvest':
                 coralType = "Free Pulls";
                 coralTitle = "Free Pulls Statistics";
+                coralStats = stats.freePulls;
                 break;
             case 'sequences':
                 coralType = `Leftover ${currencyName}`;
                 coralTitle = `Leftover ${currencyName} Statistics`;
+                coralStats = stats.totalCorals;
                 break;
             case 'none':
             default:
                 coralType = currencyName;
                 coralTitle = `${currencyName} Statistics`;
+                coralStats = stats.totalCorals;
                 break;
         }
 
@@ -635,19 +636,19 @@ class GachaSimulator {
         if (p90CoralsLabel) p90CoralsLabel.textContent = `90th Percentile ${coralType}:`;
 
         const avgCorals = document.getElementById('avgCorals');
-        if (avgCorals) avgCorals.textContent = stats.corals.average.toFixed(1);
+        if (avgCorals) avgCorals.textContent = coralStats.average.toFixed(1);
 
         const medianCorals = document.getElementById('medianCorals');
-        if (medianCorals) medianCorals.textContent = stats.corals.median;
+        if (medianCorals) medianCorals.textContent = coralStats.median;
 
         const minCorals = document.getElementById('minCorals');
-        if (minCorals) minCorals.textContent = stats.corals.min;
+        if (minCorals) minCorals.textContent = coralStats.min;
 
         const maxCorals = document.getElementById('maxCorals');
-        if (maxCorals) maxCorals.textContent = stats.corals.max;
+        if (maxCorals) maxCorals.textContent = coralStats.max;
 
         const p90Corals = document.getElementById('p90Corals');
-        if (p90Corals) p90Corals.textContent = stats.corals.p90;
+        if (p90Corals) p90Corals.textContent = coralStats.p90;
 
         // Create chart
         const pullCounts = results.map(r => r.totalPulls);
