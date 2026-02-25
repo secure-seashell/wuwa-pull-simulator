@@ -606,13 +606,13 @@ class GachaSimulator {
             case 'sequences':
                 coralType = `Leftover ${currencyName}`;
                 coralTitle = `Leftover ${currencyName} Statistics`;
-                coralStats = stats.totalCorals;
+                coralStats = stats.corals;
                 break;
             case 'none':
             default:
                 coralType = currencyName;
                 coralTitle = `${currencyName} Statistics`;
-                coralStats = stats.totalCorals;
+                coralStats = stats.corals;
                 break;
         }
 
