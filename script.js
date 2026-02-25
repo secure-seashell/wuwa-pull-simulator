@@ -16,11 +16,19 @@ const GAME_CONFIGS = {
                     { start: 71, rate: 0.08 },
                     { start: 76, rate: 0.09 }
                 ],
-                hasGuarantee: true,
                 guaranteeRate: 0.5,
                 aRankRate: 0.06,
                 aRankGuaranteeRate: 0.5,
-                aRankPity: 10
+                aRankPity: 10,
+
+                corals: {
+                    aRank: 3,
+                    aRankMax: 8,
+                    sRankStandard: 30,
+                    sRankDupeMax: 25,
+                    sRankDupe: 0,
+                    sRank: 15
+                }
             },
             weapon: {
                 pity: 80,
@@ -31,10 +39,19 @@ const GAME_CONFIGS = {
                     { start: 71, rate: 0.08 },
                     { start: 76, rate: 0.09 }
                 ],
-                hasGuarantee: false,
+                guaranteeRate: 1.0,
                 aRankRate: 0.06,
                 aRankGuaranteeRate: 0.5,
-                aRankPity: 10
+                aRankPity: 10,
+
+                corals: {
+                    aRank: 3,
+                    aRankMax: 3,
+                    sRankStandard: 0,
+                    sRankDupeMax: 0,
+                    sRankDupe: 0,
+                    sRank: 15
+                }
             }
         },
         tooltips: {
@@ -45,16 +62,6 @@ const GAME_CONFIGS = {
             softPityText: '4% per pull starting at pull 66, 8% at 71, 9% at 76, experimentally observed on <a href="https://wuwatracker.com/" target="_blank">wuwatracker.com</a>.',
             sequenceText: 'When spending corals on sequences, after winning the desired character, 370 corals are spent to buy a sequence if available. Corals are not spent at any other time.',
             pullText: 'When spending corals on pulls, 8 corals are always spent if available. These are not counted in the final pull count.'
-        },
-        coralRewards: {
-            sRankFirst: 15, // S-rank character first copy
-            sRankDupe: 15, // S-rank character dupe
-            sRankDupeM6: 40, // S-rank character dupe at M6
-            sRankWeapon: 15, // S-rank weapon
-            sRank5050Loss: 30, // 50/50 loss reward (in addition to base)
-            aRankDupe: 3, // A-rank character at M0
-            aRankDupeM6: 8, // A-rank character at M6
-            aRankWeapon: 3 // A-rank weapon
         }
     },
     zzz: {
@@ -71,11 +78,19 @@ const GAME_CONFIGS = {
                 softPityRates: [
                     { start: 76, rate: 0.06 }
                 ],
-                hasGuarantee: true,
                 guaranteeRate: 0.5,
                 aRankRate: 0.094,
                 aRankGuaranteeRate: 0.5,
-                aRankPity: 10
+                aRankPity: 10,
+
+                corals: {
+                    aRank: 8,
+                    aRankMax: 20,
+                    sRankStandard: 0,
+                    sRankDupeMax: 100,
+                    sRankDupe: 40,
+                    sRank: 0
+                }
             },
             weapon: {
                 pity: 80,
@@ -84,11 +99,19 @@ const GAME_CONFIGS = {
                 softPityRates: [
                     { start: 66, rate: 0.06 }
                 ],
-                hasGuarantee: true,
                 guaranteeRate: 0.75,
                 aRankRate: 0.15,
                 aRankGuaranteeRate: 0.75,
-                aRankPity: 10
+                aRankPity: 10,
+
+                corals: {
+                    aRank: 8,
+                    aRankMax: 8,
+                    sRankStandard: 0,
+                    sRankDupeMax: 0,
+                    sRankDupe: 0,
+                    sRank: 40
+                }
             }
         },
         tooltips: {
@@ -99,15 +122,6 @@ const GAME_CONFIGS = {
             softPityText: '6% per pull starting at pull 76 for character banner, 66 for weapon banner, based on community data.',
             sequenceText: null,
             pullText: 'When spending signals on pulls, 20 signals are always spent if available. These are not counted in the final pull count.'
-        },
-        coralRewards: {
-            sRankFirst: 0, // S-rank character first copy (no signals)
-            sRankDupe: 40, // S-rank character dupe
-            sRankDupeM6: 100, // S-rank character dupe at M6
-            sRankWeapon: 40, // S-rank weapon
-            aRankDupe: 8, // A-rank character at M0
-            aRankDupeM6: 20, // A-rank character at M6
-            aRankWeapon: 8 // A-rank weapon
         }
     }
 };
@@ -263,13 +277,11 @@ class GachaSimulator {
             aRankS0: document.querySelector('input[name="aRankTier"]:checked')?.value === 'm0' || false,
             standardSRankS0: document.querySelector('input[name="sRankTier"]:checked')?.value === 'm0' || false,
             coralMode: coralMode,
-            reinvestCorals: coralMode === 'reinvest', // For backward compatibility
             sequenceMode: coralMode === 'sequences'
         };
     }
 
-    calculateProbability(pityCount, bannerType) {
-        const bannerConfig = this.gameConfig.banners[bannerType];
+    calculateProbability(pityCount, bannerConfig) {
         let currentRate = bannerConfig.baseRate;
 
         // Apply soft pity increases
@@ -292,6 +304,7 @@ class GachaSimulator {
             weaponResult = this.simulateBannerRun({
                 ...params,
                 bannerType: 'weapon',
+                config: this.gameConfig.banners.weapon,
                 target: params.weaponTarget,
                 guaranteed: params.weaponGuaranteed,
                 startingCorals: params.startingCorals
@@ -305,6 +318,7 @@ class GachaSimulator {
             characterResult = this.simulateBannerRun({
                 ...params,
                 bannerType: 'character',
+                config: this.gameConfig.banners.character,
                 target: params.characterTarget,
                 guaranteed: params.characterGuaranteed,
                 startingCorals: weaponResult.totalCorals // Use corals from weapon banner
@@ -341,7 +355,7 @@ class GachaSimulator {
         while (rateUpObtained < params.target) {
             // Check if we can use corals for a free pull
             let isFreePull = false;
-            const shouldReinvest = params.reinvestCorals || params.coralMode === 'reinvest';
+            const shouldReinvest = params.coralMode === 'reinvest';
 
             if (shouldReinvest && totalCorals >= this.gameConfig.secondaryCost) {
                 totalCorals -= this.gameConfig.secondaryCost;
@@ -354,62 +368,28 @@ class GachaSimulator {
             sPityCount++;
             aPityCount++;
 
-            const sRankProbability = this.calculateProbability(sPityCount, params.bannerType);
+            const sRankProbability = this.calculateProbability(sPityCount, params.config);
+            const aRankProbability = params.config.aRankRate;
+            const rarityResult = Math.random();
+            const rateUpResult = Math.random(); // 50/50 etc
 
-            if (Math.random() < sRankProbability) {
+            if (rarityResult < sRankProbability) {
                 // Got an S-rank, handle differently based on banner type
-                let coralsFromSRank = 0;
+                let coralsFromSRank = params.config.corals.sRank;
 
                 let gotRateUp = false;
 
-                if (params.bannerType === 'weapon') {
-                    // Weapon banner: different logic based on game
-                    const weaponConfig = this.gameConfig.banners.weapon;
-                    if (weaponConfig.hasGuarantee) {
-                        // Game has weapon guarantee system (like ZZZ)
-                        if (isGuaranteed || Math.random() < weaponConfig.guaranteeRate) {
-                            rateUpObtained++;
-                            gotRateUp = true;
-                            isGuaranteed = false;
-                        } else {
-                            isGuaranteed = true;
-                        }
-                    } else {
-                        // No guarantee system (like WuWa)
-                        rateUpObtained++;
-                        gotRateUp = true;
-                    }
-                    coralsFromSRank = this.gameConfig.coralRewards.sRankWeapon;
+                if (isGuaranteed || rateUpResult < params.config.guaranteeRate) {
+                    rateUpObtained++;
+                    gotRateUp = true;
+                    isGuaranteed = false;
                 } else {
-                    // Character banner: 50/50 system
-                    const charConfig = this.gameConfig.banners.character;
-                    if (isGuaranteed) {
-                        // Guaranteed rate-up
-                        rateUpObtained++;
-                        gotRateUp = true;
-                        isGuaranteed = false; // Reset to 50/50 after guaranteed
-                        coralsFromSRank = this.gameConfig.coralRewards.sRankFirst;
+                    isGuaranteed = true;
+                    coralsFromSRank += params.config.corals.sRankStandard;
+                    if (params.standardSRankS0) {
+                        coralsFromSRank += params.config.corals.sRankDupe;
                     } else {
-                        // 50/50 chance
-                        if (Math.random() < charConfig.guaranteeRate) {
-                            // Won 50/50, got rate-up
-                            rateUpObtained++;
-                            gotRateUp = true;
-                            coralsFromSRank = this.gameConfig.coralRewards.sRankFirst;
-                            // Next remains 50/50
-                        } else {
-                            // Lost 50/50, got standard S-rank
-                            isGuaranteed = true; // Next S-rank is guaranteed rate-up
-                            let baseCorals = params.characterS6 ?
-                                this.gameConfig.coralRewards.sRankDupeM6 :
-                                this.gameConfig.coralRewards.sRankDupe;
-
-                            // Add 50/50 loss bonus if game supports it
-                            if (this.gameConfig.coralRewards.sRank5050Loss) {
-                                baseCorals += this.gameConfig.coralRewards.sRank5050Loss;
-                            }
-                            coralsFromSRank = baseCorals;
-                        }
+                        coralsFromSRank += params.config.corals.sRankDupeMax;
                     }
                 }
 
@@ -428,21 +408,23 @@ class GachaSimulator {
                         sequencesPurchased++;
                     }
                 }
-            } else {
-                // Didn't get S-rank, check for A-rank
-                const bannerConfig = this.gameConfig.banners[params.bannerType];
-                const aRankProbability = bannerConfig.aRankRate;
-                const guaranteedARank = aPityCount >= bannerConfig.aRankPity;
-
-                if (guaranteedARank || Math.random() < aRankProbability) {
-                    // Got an A-rank
-                    totalARanks++;
-                    let result = this.calculateARankCorals(aIsGuaranteed, params);
-                    totalCorals += result.corals;
-                    aIsGuaranteed = result.newGuaranteeState;
-                    aPityCount = 0; // Reset A-rank pity
+            } else if (rarityResult < sRankProbability + aRankProbability || aPityCount >= params.config.aRankPity) {
+                totalARanks++;
+                let config;
+                if (aIsGuaranteed || rateUpResult < params.config.aRankGuaranteeRate) {
+                    aIsGuaranteed = false;
+                    config = params.config;
+                } else { // 50/50 etc loss
+                    aIsGuaranteed = true;
+                    // 50/50 character vs weapon banner
+                    if (Math.random() < 0.5) {
+                        config = this.gameConfig.banners.weapon;
+                    } else {
+                        config = this.gameConfig.banners.character;
+                    }
                 }
-                // If neither S-rank nor A-rank, continue (R-rank)
+                totalCorals += params.aRankS0 ? config.corals.aRank : config.corals.aRankMax;
+                aPityCount = 0;
             }
         }
 
@@ -465,78 +447,6 @@ class GachaSimulator {
             case 'none':
             default:
                 return totalCorals; // All corals saved
-        }
-    }
-
-    calculateARankCorals(aIsGuaranteed, params) {
-        const bannerConfig = this.gameConfig.banners[params.bannerType];
-
-        if (aIsGuaranteed) {
-            // Guaranteed A-rank rate-up
-            if (params.bannerType === 'weapon') {
-                // Weapon banner: guaranteed A-rank is always a weapon
-                return {
-                    corals: this.gameConfig.coralRewards.aRankWeapon,
-                    newGuaranteeState: false // Reset after guaranteed
-                };
-            } else {
-                // Character banner: guaranteed A-rank rate-up character
-                return {
-                    corals: params.aRankS6 ? this.gameConfig.coralRewards.aRankDupeM6 : this.gameConfig.coralRewards.aRankDupe,
-                    newGuaranteeState: false // Reset after guaranteed
-                };
-            }
-        } else {
-            // A-rank rate-up chance (banner-specific)
-            if (Math.random() < bannerConfig.aRankGuaranteeRate) {
-                // Won A-rank 50/50
-                if (params.bannerType === 'weapon') {
-                    // Weapon banner: won 50/50, got rate-up weapon (always 3 corals)
-                    return {
-                        corals: this.gameConfig.coralRewards.aRankWeapon,
-                        newGuaranteeState: false // Remains 50/50
-                    };
-                } else {
-                    // Character banner: won 50/50, got rate-up character
-                    return {
-                        corals: params.aRankS6 ? this.gameConfig.coralRewards.aRankDupeM6 : this.gameConfig.coralRewards.aRankDupe,
-                        newGuaranteeState: false // Remains 50/50
-                    };
-                }
-            } else {
-                // Lost A-rank 50/50
-                if (params.bannerType === 'weapon') {
-                    // Weapon banner: lost 50/50, get random character vs weapon
-                    if (Math.random() < 0.5) {
-                        // Character banner standard A-rank
-                        return {
-                            corals: params.aRankS6 ? this.gameConfig.coralRewards.aRankDupeM6 : this.gameConfig.coralRewards.aRankDupe,
-                            newGuaranteeState: true // Next A-rank is guaranteed rate-up
-                        };
-                    } else {
-                        // Weapon banner A-rank (always 3 corals)
-                        return {
-                            corals: this.gameConfig.coralRewards.aRankWeapon,
-                            newGuaranteeState: true // Next A-rank is guaranteed rate-up
-                        };
-                    }
-                } else {
-                    // Character banner: lost 50/50, get random character vs weapon
-                    if (Math.random() < 0.5) {
-                        // Character banner standard A-rank
-                        return {
-                            corals: params.aRankS6 ? this.gameConfig.coralRewards.aRankDupeM6 : this.gameConfig.coralRewards.aRankDupe,
-                            newGuaranteeState: true // Next A-rank is guaranteed rate-up
-                        };
-                    } else {
-                        // Weapon banner A-rank (always 3 corals)
-                        return {
-                            corals: this.gameConfig.coralRewards.aRankWeapon,
-                            newGuaranteeState: true // Next A-rank is guaranteed rate-up
-                        };
-                    }
-                }
-            }
         }
     }
 
