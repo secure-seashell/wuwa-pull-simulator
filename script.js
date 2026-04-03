@@ -296,8 +296,12 @@ class GachaSimulator {
 
     simulateSingleRun(params) {
         // Run weapon banner first, then character banner
-        let weaponResult = { totalPulls: 0, totalARanks: 0, totalCorals: 0 };
-        let characterResult = { totalPulls: 0, totalARanks: 0, totalCorals: 0 };
+        let weaponResult = {
+          totalPulls: 0,
+          totalARanks: 0,
+          totalCorals: params.startingCorals,
+          freePullsEarned: 0
+        };
 
         // For weapon banner, we need to get actual corals, not processed by coral mode
         if (params.weaponTarget > 0) {
@@ -310,9 +314,14 @@ class GachaSimulator {
                 startingCorals: params.startingCorals
                 // Use the actual coralMode selected by user
             });
-        } else {
-            weaponResult.totalCorals = params.startingCorals; // No weapon pulls, keep starting corals
         }
+
+        let characterResult = {
+          totalPulls: 0,
+          totalARanks: 0,
+          totalCorals: weaponResult.totalCorals,
+          freePullsEarned: 0
+        };
 
         if (params.characterTarget > 0) {
             characterResult = this.simulateBannerRun({
@@ -323,9 +332,6 @@ class GachaSimulator {
                 guaranteed: params.characterGuaranteed,
                 startingCorals: weaponResult.totalCorals // Use corals from weapon banner
             });
-        } else {
-            // Only weapons, apply coral mode to weapon result
-            characterResult.totalCorals = weaponResult.totalCorals;
         }
 
         return {
